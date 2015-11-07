@@ -55,6 +55,14 @@ struct sr_instance
     pthread_attr_t attr;
     FILE* logfile;
 };
+void sendPacket(struct sr_instance* sr, uint8_t* buf, char* iface, int len);
+void sendIcmpHostUnreachable(struct sr_instance *sr, uint8_t*buf, char* iface, int len);
+bool destinedToRouter(uint32_t d);
+int icmp(struct sr_instance* sr, uint8_t* packet);
+
+bool destinedToRouter(uint32_t d);
+void sendInReverse(sr_ethernet_hdr_t* out_eth,  sr_ethernet_hdr_t* ethernet_hdr);
+void setIcmpHeaders(uint8_t* buf, int icmp_type_code);
 
 /* -- sr_main.c -- */
 int sr_verify_routing_table(struct sr_instance* sr);

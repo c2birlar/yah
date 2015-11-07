@@ -105,6 +105,9 @@ struct sr_arpcache {
     pthread_mutex_t lock;
     pthread_mutexattr_t attr;
 };
+unsigned char* getIfRecord(struct sr_instance *sr, uin32_t ipdest);
+void sendARPRequest(struct sr_instance *sr, struct sr_arpreq* request);
+void handle_arpreq(struct sr_instance *sr, struct sr_arpreq* request);
 
 /* Checks if an IP->MAC mapping is in the cache. IP is in network byte order. 
    You must free the returned structure if it is not NULL. */

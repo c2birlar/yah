@@ -1,3 +1,4 @@
+ 
 #include <netinet/in.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -11,6 +12,85 @@
 #include "sr_if.h"
 #include "sr_protocol.h"
 
+unsigned char* getIfRecord(struct sr_instance *sr, uint32_t ip_dest){
+  char* iface =  checkRtable(sr, ip_dest);
+  struct sr_if* ifRecord = sr_get_interface(sr, iface);
+  return ifRecord;
+}
+
+void sendARPRequest(struct sr_instance *sr, struct sr_arpreq* request){
+  
+  //memory for ethernet and ARP header 
+  int buff_size = sizeof(struct sr_ethernet_hdr) + sizeof(struct sr_arp_hdr);
+  uint8_t* buf = malloc(buff_size);
+
+ 
+  sr_ethernet_hdr_t* eth = buf;
+  struct sr_if* ifRecord = getIfRecord(sr, request->ip);
+  eth->ether_shost = ifRecord->addr;
+  eth->ether_type = htons(ethertype_arp);
+  out_eth->ether_dhost = ['ff', 'ff', 'ff', 'ff', 'ff', 'ff'];
+  //set ARP header for ARP request 
+  sr_arp_hdr_t* arp_hdr = buf + sizeof(struct sr_ethernet_hdr);
+  arp_hdr->ar_hrd = htonl(arp_hrd_ethernet);
+  arp_hdr->ar_pro = htonl(0x0800);
+  arp_hdr->ar_hln = htonl(ETHER_ADDR_LEN);
+  arp_hdr->ar_pln = htonl(4);
+  arp_hdr->op = htonl(arp_op_request);
+  arp_hdr->ar_sha = mac;
+  arp_hdr->ar_sip = htonl(srcIP);
+  arp_hdr->ar_tha = 0;//need to determine
+  arp_hdr->ar_tip = htonl(request->ip);
+  
+  //Create packet to send
+  struct sr_packet* packet = malloc(sizeof(struct sr_packet));
+  packet->buf = buf;
+  packet->len = htonl(buff_size);
+  packet->iface = iface;
+  packet->next = NULL;
+  //Send packet
+  int ret = sr_send_packet(sr, packet, buff_size, packet->iface);
+  if (ret != 0){
+    perror("packet not sent");
+    exit(1);
+  }
+}
+
+
+
+/*Handles an arp cache request. Removes if neccessary.
+ *Called by sr_arpcache_sweepreqs function for each 
+ *request.
+ */
+void handle_arpreq(struct sr_instance *sr, struct sr_arpreq* request){
+  struct sr_arpcache* cache = &(sr->cache);
+  if (request->sent > 0){
+      //sent = time; if sent= 0, then never sent
+    if (request->times_sent >= 5){
+     
+      //send icmp host unreachable to all packets what were
+      //waiting for this failed request
+      //go through each packet
+      struct sr_packet* traverser = request->packets;
+      while(traverser != NULL){
+	sendIcmpHostUnreachable(sr, traverser->buf,traverser->iface, traverser->len);
+	  
+	traverser = packets->next;
+      }
+      
+      sr_arpreq_destroy(cache, request);
+    }else{
+      //sr_ethernet_hdr_t* eth_hdr;
+      sendARPRequest(sr,request);
+      
+      traverser->sent = time(NULL);
+      traverser->times_sent++;
+    }
+  }
+ 
+}
+
+
 /* 
   This function gets called every second. For each request sent out, we keep
   checking whether we should resend an request or destroy the arp request.
@@ -18,6 +98,80 @@
 */
 void sr_arpcache_sweepreqs(struct sr_instance *sr) { 
     /* Fill this in */
+  //for each request on sr->cache.requests:
+  //    handle_arpreq(request)...this could destory current request
+  //        so save next ptr before calling this when traversing through
+  //        ARP requests linked list
+  struct sr_arpcache cache = sr->cache;
+  //linked list of requests
+  struct sr_arpreq* requests_root = cache.requests;
+  
+  //traverse cache requests
+  //struct sr_arpreq* traverser = requests_root;
+  
+  
+  struct sr_arpreq *req;
+  struct sr_arpreq *next_req = requests_root->next;
+  for (req = requests_root; req != NULL; req = next_req) {
+    //save incremental step, because it may get deleted
+    next_req = req->next;
+    handle_arpreq(sr,req);
+  }
+  /*
+  //Find first request that isn't failed; assess it and make that the root
+  while(traverser!= NULL){
+    if (traverser->sent > 0){
+      //sent = time; if sent= 0, then never sent
+      if (traverser->times_sent >= 5){
+	//TODO
+	//send icmp host unreachable to all packets what were
+	//waiting for this failed request
+	icmpHostUnreachable();
+      
+	//remove request node that has failed, update linked list
+	if (traverser->next == NULL){
+	  free(traverser);
+	  
+	}else{
+	  requests_root = traverser->next;
+	  struct sr_arpreq* old_root = traverser;
+	  free(old_root);
+	  traverser = requests_root;
+	}
+      }else{
+	//TODO
+	//send out another request
+	traverser->sent = time(NULL);
+	traverser->times_sent++;
+	//int current_node_serviced = 1;
+	break;
+      }
+    }
+ 
+  }
+
+  //by now,if not null, root has been assessed; now assess rest
+  struct sr_arpreq* next_node;
+  if(traverser!= NULL){
+    while(traverser->next != NULL){
+      next_node = traverser->next;
+      if (next_node->times_sent >= 5){
+	//TODO
+	icmpHostUnreachable();
+	//bypass to next_node->next, but don't traverse to it 
+	traverser->next = next_node->next;
+      }else{
+	//TODO
+	//send out another arp request
+	next_node->sent = time(NULL);
+	next_node->times_sent++;
+	//continue traversing
+	traverser = traverser->next;
+      }
+    }
+  }
+  */
+
 }
 
 /* You should not need to touch the rest of this code. */
@@ -244,4 +398,3 @@ void *sr_arpcache_timeout(void *sr_ptr) {
     
     return NULL;
 }
-
