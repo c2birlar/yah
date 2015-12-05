@@ -57,12 +57,34 @@ struct sr_instance
 };
 void sendPacket(struct sr_instance* sr, uint8_t* buf, char* iface, int len);
 void sendIcmpHostUnreachable(struct sr_instance *sr, uint8_t*buf, char* iface, int len);
-bool destinedToRouter(uint32_t d);
+int ip_forward(struct sr_instance* sr,
+	       uint8_t* packet,
+	       int len,
+	       struct sr_ethernet_hdr* ethernet_hdr, 
+	       uint8_t dest_mac[], 
+	       uint32_t dest_ip,
+	       uint16_t cksum,
+	       char* interface);
+int arp_send(struct sr_instance* sr,
+	     uint8_t* packet,
+	     int len,
+	     struct sr_ethernet_hdr* ethernet_hdr, 
+	     struct sr_arp_hdr* arp_header,
+	     uint32_t dest_ip);
+int handle_IP_packet(struct sr_instance* sr, 
+		      uint8_t* packet,
+		      int len, 
+		     char* interface);
+int handle_ARP_packet(struct sr_instance* sr, 
+		      uint8_t* packet,
+		      int len, 
+		      char* interface);
 int icmp(struct sr_instance* sr, uint8_t* packet);
 
-bool destinedToRouter(uint32_t d);
+_Bool destinedToRouter(uint32_t d);
 void sendInReverse(sr_ethernet_hdr_t* out_eth,  sr_ethernet_hdr_t* ethernet_hdr);
-void setIcmpHeaders(uint8_t* buf, int icmp_type_code);
+void convertMAC(uint8_t dest_mac[], unsigned char mac[]);
+void setIcmpHeaders(uint8_t* buf, int icmp_type_code, struct sr_instance* sr);
 
 /* -- sr_main.c -- */
 int sr_verify_routing_table(struct sr_instance* sr);
