@@ -124,7 +124,7 @@ _Bool destinedToRouter(uint32_t d){
   //dot notation to binary data, store in struct in_addr
   retval = inet_aton("192.168.2.1", &addrptr);
   retval2 = inet_aton("172.64.3.1", &addrptr2);
-  retval3 = inet_aton("10.0.1.11", &addrptr3);
+  retval3 = inet_aton("10.0.1.1", &addrptr3);
   if ((retval == 0) || (retval2 == 0) || (retval3 == 0)){
     fprintf(stderr, "Failed determining IP address in dot notation\n");
   }
